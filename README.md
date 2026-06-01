@@ -1,1 +1,0 @@
-# Novogene_Symposium_Plasmid-Lucky-Wheel
