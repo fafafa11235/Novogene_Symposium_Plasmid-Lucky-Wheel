@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Novogene Lucky Wheel</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(180deg, #BFE0FF 0%, #B8F0C0 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 44px;
+    }
+
+    /* ── Header ─────────────────────────────────────── */
+    header {
+      width: 100%;
+      padding: 32px 20px 24px;
+      text-align: center;
+      position: relative;
+    }
+
+    .title { font-size: 2rem; font-weight: 800; color: #003F76; letter-spacing: 1px; }
+    .title em { font-style: normal; color: #1877F2; }
+    .subtitle { margin-top: 6px; font-size: 0.85rem; color: rgba(0,63,118,0.55); letter-spacing: 2px; text-transform: uppercase; }
+
+    .lock-btn {
+      position: absolute; top: 50%; right: 20px; transform: translateY(-50%);
+      background: none; border: none; font-size: 1.2rem; cursor: pointer;
+      opacity: 0.35; padding: 6px 8px; border-radius: 8px; transition: opacity 0.18s; line-height: 1;
+    }
+    .lock-btn:hover { opacity: 0.8; }
+    .lock-btn.admin-mode {
+      opacity: 1; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;
+      color: #e53935; border: 1.5px solid #e53935; border-radius: 6px; padding: 5px 10px;
+    }
+
+    .pw-prompt {
+      display: none; position: absolute; top: 50%; right: 20px; transform: translateY(-50%);
+      background: white; border-radius: 10px; box-shadow: 0 4px 24px rgba(0,63,118,0.18);
+      padding: 10px 12px; align-items: center; gap: 8px; z-index: 300;
+    }
+    .pw-prompt.show { display: flex; }
+    .pw-prompt input { padding: 7px 10px; border: 1.5px solid #dde3ea; border-radius: 6px; font-size: 0.85rem; outline: none; width: 160px; font-family: inherit; }
+    .pw-prompt input:focus { border-color: #1877F2; }
+    .pw-ok { padding: 7px 14px; background: #1877F2; color: white; border: none; border-radius: 6px; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: background 0.18s; }
+    .pw-ok:hover { background: #0f60cc; }
+    .pw-cancel { padding: 7px 10px; background: transparent; color: #aaa; border: 1.5px solid #dde3ea; border-radius: 6px; font-size: 0.82rem; cursor: pointer; transition: border-color 0.18s; }
+    .pw-cancel:hover { border-color: #aab0bb; color: #666; }
+    .pw-error { position: absolute; bottom: -22px; left: 12px; font-size: 0.7rem; color: #e53935; white-space: nowrap; }
+
+    @keyframes shake {
+      0%,100% { transform: translateY(-50%) translateX(0); }
+      20%      { transform: translateY(-50%) translateX(-7px); }
+      40%      { transform: translateY(-50%) translateX(7px); }
+      60%      { transform: translateY(-50%) translateX(-4px); }
+      80%      { transform: translateY(-50%) translateX(4px); }
+    }
+    .pw-prompt.shake { animation: shake 0.4s ease; }
+
+    /* ── Language Switcher ───────────────────────────── */
+    .lang-switcher {
+      position: absolute; top: 50%; left: 20px; transform: translateY(-50%);
+      display: flex; gap: 4px; z-index: 10;
+    }
+    .lang-btn {
+      padding: 4px 9px; border: 1.5px solid rgba(0,63,118,0.2);
+      border-radius: 5px; font-size: 0.72rem; font-weight: 700;
+      color: #6680a0; background: rgba(255,255,255,0.65);
+      cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px; line-height: 1.5;
+    }
+    .lang-btn:hover { border-color: #1877F2; color: #1877F2; background: white; }
+    .lang-btn.active { background: #1877F2; color: white; border-color: #1877F2; }
+
+    /* ── Page body ───────────────────────────────────── */
+    .page-body {
+      display: flex; align-items: flex-start; justify-content: center;
+      width: 100%; max-width: 1280px; padding: 0 20px 40px; gap: 28px;
+    }
+
+    /* ── Main ────────────────────────────────────────── */
+    main { display: flex; flex-direction: column; align-items: center; gap: 26px; width: 100%; max-width: 560px; flex-shrink: 0; }
+
+    /* ── Wheel area ──────────────────────────────────── */
+    .wheel-area { display: flex; flex-direction: column; align-items: center; }
+    .pointer-wrap { z-index: 2; position: relative; bottom: -4px; line-height: 0; }
+    .pointer-svg { filter: drop-shadow(0 3px 6px rgba(0,63,118,0.30)); }
+    .canvas-wrap {
+      position: relative; border-radius: 50%;
+      box-shadow: 0 12px 40px rgba(0,63,118,0.18), 0 2px 8px rgba(0,0,0,0.08);
+    }
+    canvas { display: block; border-radius: 50%; }
+
+    /* ── Spin button ─────────────────────────────────── */
+    .spin-btn {
+      margin-top: 4px; padding: 13px 72px; font-size: 1rem; font-weight: 700;
+      letter-spacing: 3px; text-transform: uppercase; color: white;
+      background: #43B149; border: none; border-radius: 8px; cursor: pointer;
+      transition: background 0.18s, transform 0.1s, box-shadow 0.18s;
+      box-shadow: 0 4px 16px rgba(67,177,73,0.35);
+    }
+    .spin-btn:hover:not(:disabled) { background: #37a03d; box-shadow: 0 6px 22px rgba(67,177,73,0.45); }
+    .spin-btn:active:not(:disabled) { transform: scale(0.97); }
+    .spin-btn:disabled { background: #b0c4b1; box-shadow: none; cursor: not-allowed; }
+    .spin-btn.hidden { display: none; }
+
+    /* ── Settings card ───────────────────────────────── */
+    .settings-card { width: 100%; background: white; border-radius: 14px; box-shadow: 0 2px 16px rgba(0,63,118,0.10); overflow: hidden; }
+    .settings-hd { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer; user-select: none; background: #f7f9ff; border-bottom: 1px solid #eef1f8; }
+    .settings-hd h3 { font-size: 0.9rem; font-weight: 700; color: #003F76; letter-spacing: 0.5px; }
+    .chevron { width: 18px; height: 18px; fill: none; stroke: #003F76; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.25s; }
+    .chevron.open { transform: rotate(180deg); }
+    .settings-bd { display: none; padding: 4px 20px 18px; border-top: 1px solid #f0f4f8; }
+    .settings-bd.open { display: block; }
+    .settings-actions { display: flex; gap: 10px; padding: 12px 0 14px; flex-wrap: wrap; }
+
+    .btn-add { padding: 7px 18px; background: #1877F2; color: white; border: none; border-radius: 6px; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; transition: background 0.18s; }
+    .btn-add:hover { background: #0f60cc; }
+    .btn-reset { padding: 7px 18px; background: transparent; color: #888; border: 1.5px solid #dde3ea; border-radius: 6px; font-size: 0.82rem; cursor: pointer; transition: border-color 0.18s, color 0.18s; }
+    .btn-reset:hover { border-color: #aab0bb; color: #555; }
+    .btn-csv { padding: 7px 18px; background: #43B149; color: white; border: none; border-radius: 6px; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; transition: background 0.18s; }
+    .btn-csv:hover { background: #37a03d; }
+
+    .list-header { display: flex; align-items: center; padding: 0 12px 6px; gap: 10px; font-size: 0.68rem; font-weight: 700; color: #aab; text-transform: uppercase; letter-spacing: 0.5px; }
+    .lh-num  { width: 26px; flex-shrink: 0; text-align: center; }
+    .lh-name { flex: 1; }
+    .lh-wt   { width: 68px; flex-shrink: 0; text-align: center; }
+    .lh-pct  { width: 48px; flex-shrink: 0; text-align: right; }
+    .lh-del  { width: 24px; flex-shrink: 0; }
+
+    .prize-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 2px; }
+    .prize-list::-webkit-scrollbar { width: 4px; }
+    .prize-list::-webkit-scrollbar-track { background: #f5f7fa; border-radius: 2px; }
+    .prize-list::-webkit-scrollbar-thumb { background: #d0d8e4; border-radius: 2px; }
+
+    .prize-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f7f9fc; border-radius: 8px; border: 1.5px solid #eef1f6; transition: border-color 0.15s; }
+    .prize-item:focus-within { border-color: #1877F2; background: #f0f6ff; }
+    .color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .prize-num { font-size: 0.72rem; font-weight: 700; color: #ccc; flex-shrink: 0; width: 16px; text-align: center; }
+    .prize-item .name-inp { flex: 1; border: none; background: transparent; outline: none; font-size: 0.88rem; color: #222; font-family: inherit; min-width: 0; }
+    .prize-item .name-inp::placeholder { color: #ccc; }
+    .weight-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .wt-label { font-size: 0.65rem; font-weight: 700; color: #c0c8d8; text-transform: uppercase; letter-spacing: 0.3px; }
+    .weight-inp { width: 48px; border: 1.5px solid #dde3ea; border-radius: 5px; padding: 3px 6px; font-size: 0.82rem; color: #333; text-align: center; font-family: inherit; outline: none; transition: border-color 0.15s; background: white; }
+    .weight-inp:focus { border-color: #1877F2; }
+    .prob-pct { font-size: 0.75rem; font-weight: 700; color: #1877F2; width: 46px; text-align: right; flex-shrink: 0; }
+    .del-btn { background: none; border: none; color: #d8d8d8; font-size: 1rem; cursor: pointer; padding: 2px 4px; border-radius: 4px; line-height: 1; transition: color 0.15s, background 0.15s; flex-shrink: 0; }
+    .del-btn:hover { color: #e53935; background: #fff0f0; }
+
+    .prize-totals { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 8px 14px; background: #f0f6ff; border-radius: 8px; font-size: 0.76rem; color: #666; }
+    .prize-totals strong { color: #003F76; }
+    .hint { margin-top: 10px; font-size: 0.72rem; color: #bbb; text-align: center; }
+
+    /* Admin winners section */
+    .admin-winners-section { margin-top: 16px; border-top: 1px solid #eef1f6; padding-top: 14px; }
+    .admin-winners-hd { font-size: 0.75rem; font-weight: 700; color: #003F76; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .admin-winners-count { font-weight: 400; color: #888; font-size: 0.7rem; }
+    .admin-winners-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+    .admin-winners-table th { text-align: left; padding: 5px 6px; background: #f7f9ff; color: #889; font-weight: 700; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid #eef1f6; }
+    .admin-winners-table td { padding: 5px 6px; color: #334; border-bottom: 1px solid #f5f7fa; vertical-align: top; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .admin-no-winners { color: #aab; font-size: 0.78rem; text-align: center; padding: 12px 0; }
+
+    /* ── Left panel ──────────────────────────────────── */
+    .left-panel { width: 280px; flex-shrink: 0; position: sticky; top: 24px; }
+    .right-panel { width: 300px; flex-shrink: 0; position: sticky; top: 24px; }
+
+    /* ── Mini Poster ─────────────────────────────────── */
+    .sidebar-poster { background: #003F76; border-radius: 16px; padding: 36px 28px 30px; color: white; height: 100%; }
+    .poster-eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 14px; }
+    .poster-headline { font-size: 2.6rem; font-weight: 900; line-height: 1.15; color: white; }
+    .poster-headline span { color: #43B149; display: block; font-size: 3rem; }
+    .poster-divider { height: 3px; background: linear-gradient(90deg, #1877F2, #43B149); border-radius: 2px; margin: 22px 0; }
+    .poster-body { font-size: 0.88rem; line-height: 1.7; color: rgba(255,255,255,0.7); }
+    .poster-badge { margin-top: 22px; display: inline-block; background: #1877F2; color: white; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.5px; padding: 7px 18px; border-radius: 24px; }
+
+    /* ── Prize Details card ──────────────────────────── */
+    .sidebar-prizes { background: white; border-radius: 16px; border: 1.5px solid #eef1f6; overflow: hidden; }
+    .sidebar-prizes-hd { padding: 14px 20px; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #003F76; background: #f7f9ff; border-bottom: 1px solid #eef1f6; }
+    .sidebar-prizes-list { padding: 6px 0; }
+    .sidebar-prize-row { display: flex; align-items: flex-start; gap: 12px; padding: 14px 20px; }
+    .sidebar-prize-row + .sidebar-prize-row { border-top: 1px solid #f0f4f8; }
+    .sidebar-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+    .sidebar-prize-info { display: flex; flex-direction: column; gap: 4px; }
+    .sidebar-prize-name { font-size: 1.5rem; font-weight: 800; color: #003F76; }
+    .sidebar-prize-desc { font-size: 1rem; color: #555; line-height: 1.45; }
+
+    .leave-details-hint { margin-top: 14px; display: flex; align-items: center; gap: 8px; background: #1877F2; color: white; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.3px; padding: 13px 18px; border-radius: 12px; }
+
+    .prize-item .desc-inp { flex: 1.4; border: none; border-left: 1.5px solid #eef1f6; padding-left: 8px; background: transparent; outline: none; font-size: 0.8rem; color: #555; font-family: inherit; min-width: 0; }
+    .prize-item .desc-inp::placeholder { color: #ccc; }
+    .lh-desc { flex: 1.4; font-size: 0.68rem; font-weight: 700; color: #aab; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media (max-width: 960px) {
+      .page-body { flex-direction: column; align-items: center; padding: 0 16px 32px; gap: 16px; }
+      .left-panel, .right-panel { width: 100%; max-width: 520px; position: static; }
+      .poster-headline { font-size: 2rem; }
+      .poster-headline span { font-size: 2.4rem; }
+      .lang-switcher { position: static; transform: none; display: flex; justify-content: center; margin-bottom: 10px; }
+      header { padding-top: 16px; }
+    }
+
+    /* ── Result Modal ────────────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,20,50,0.45); z-index: 200;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .overlay.show { display: flex; animation: fadein 0.22s ease; }
+
+    .modal {
+      background: white; border-radius: 20px; padding: 36px 36px 28px;
+      text-align: center; box-shadow: 0 24px 64px rgba(0,20,60,0.22);
+      animation: popin 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 440px; width: 100%; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-icon  { font-size: 2.4rem; line-height: 1; margin-bottom: 14px; }
+    .modal-label { font-size: 0.78rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #aab; margin-bottom: 10px; }
+    .modal-prize { font-size: 1.85rem; font-weight: 800; color: #003F76; line-height: 1.2; margin-bottom: 18px; word-break: break-word; }
+
+    .modal-recomm-box   { background: #f0f6ff; border-left: 4px solid #1877F2; border-radius: 0 10px 10px 0; padding: 14px 18px; font-size: 1.05rem; font-weight: 600; color: #003F76; line-height: 1.65; text-align: left; margin-bottom: 20px; }
+    .modal-recomm-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #1877F2; margin-bottom: 8px; }
+
+    .modal-form { text-align: left; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: 0.75rem; font-weight: 700; color: #445; margin-bottom: 5px; letter-spacing: 0.3px; }
+    .modal-field input { width: 100%; padding: 9px 12px; border: 1.5px solid #dde3ea; border-radius: 7px; font-size: 0.88rem; font-family: inherit; color: #222; outline: none; transition: border-color 0.15s; }
+    .modal-field input:focus { border-color: #1877F2; }
+    .modal-field input.error { border-color: #e53935; }
+    .modal-field-error { font-size: 0.7rem; color: #e53935; margin-top: 3px; display: none; }
+    .modal-field-error.show { display: block; }
+    .modal-submit { width: 100%; padding: 11px; background: #43B149; color: white; border: none; border-radius: 8px; font-size: 0.92rem; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: background 0.18s; margin-top: 4px; }
+    .modal-submit:hover { background: #37a03d; }
+    .modal-skip { display: block; text-align: center; margin-top: 10px; font-size: 0.75rem; color: #aab; cursor: pointer; text-decoration: underline; background: none; border: none; font-family: inherit; width: 100%; }
+    .modal-skip:hover { color: #778; }
+
+    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes popin  { from { transform: scale(0.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    /* ── Lucky Quote Overlay ─────────────────────────── */
+    .lucky-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,20,50,0.55); z-index: 250;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .lucky-overlay.show { display: flex; animation: fadein 0.3s ease; }
+    .lucky-modal {
+      background: white; border-radius: 24px; padding: 40px 36px 32px;
+      text-align: center; max-width: 420px; width: 100%;
+      box-shadow: 0 24px 64px rgba(0,20,60,0.25);
+      animation: popin 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .lucky-star   { font-size: 3rem; line-height: 1; margin-bottom: 10px; }
+    .lucky-tag    { font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #1877F2; margin-bottom: 14px; }
+    .lucky-text   { font-size: 1.15rem; font-weight: 700; color: #003F76; line-height: 1.65; margin-bottom: 28px; }
+    .lucky-back   {
+      width: 100%; padding: 12px; background: #1877F2; color: white;
+      border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 1px; cursor: pointer; transition: background 0.18s;
+    }
+    .lucky-back:hover { background: #0f60cc; }
+
+    /* ── Preview Mode ────────────────────────────────── */
+    .dir-preview-btn {
+      margin-top: 18px; background: none; border: 1.5px solid rgba(0,63,118,0.22);
+      border-radius: 8px; padding: 8px 22px; font-size: 0.8rem; font-weight: 700;
+      color: rgba(0,63,118,0.6); cursor: pointer; transition: all 0.18s; letter-spacing: 0.5px;
+    }
+    .dir-preview-btn:hover { border-color: #1877F2; color: #1877F2; background: rgba(255,255,255,0.5); }
+
+    .preview-back-btn {
+      display: none; position: fixed; bottom: 54px; left: 50%; transform: translateX(-50%);
+      z-index: 150; background: #003F76; color: white;
+      border: none; border-radius: 30px; padding: 12px 32px;
+      font-size: 0.88rem; font-weight: 700; letter-spacing: 0.5px;
+      cursor: pointer; box-shadow: 0 6px 24px rgba(0,40,90,0.35);
+      transition: background 0.18s, box-shadow 0.18s;
+    }
+    .preview-back-btn:hover { background: #1877F2; box-shadow: 0 8px 28px rgba(24,119,242,0.4); }
+
+    /* ── Direction Overlay ───────────────────────────── */
+    .dir-overlay {
+      position: fixed; inset: 0; z-index: 400;
+      background: linear-gradient(180deg, #BFE0FF 0%, #B8F0C0 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px 20px 60px;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+    .dir-overlay.hiding { opacity: 0; transform: scale(1.04); pointer-events: none; }
+    .dir-overlay.hidden { display: none; }
+
+    .dir-overlay-title { font-size: 1.6rem; font-weight: 900; color: #003F76; text-align: center; margin-bottom: 6px; }
+    .dir-overlay-sub   { font-size: 0.85rem; color: rgba(0,63,118,0.55); text-align: center; margin-bottom: 28px; letter-spacing: 0.5px; }
+
+    .dir-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+      width: 100%; max-width: 680px; margin-bottom: 28px;
+    }
+    @media (max-width: 600px) { .dir-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .dir-card {
+      background: white; border: 2.5px solid #eef1f6; border-radius: 14px;
+      padding: 20px 12px 16px; cursor: pointer; text-align: center;
+      transition: border-color 0.18s, background 0.18s, transform 0.12s, box-shadow 0.18s;
+      position: relative; user-select: none;
+    }
+    .dir-card:hover { border-color: #1877F2; background: #f0f6ff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(24,119,242,0.15); }
+    .dir-card.selected { border-color: #43B149; background: #f0fff2; box-shadow: 0 4px 16px rgba(67,177,73,0.2); }
+    .dir-card.selected::after { content: "✓"; position: absolute; top: 8px; right: 11px; font-size: 0.82rem; font-weight: 900; color: #43B149; }
+    .dir-icon  { font-size: 2rem; line-height: 1; margin-bottom: 10px; }
+    .dir-label { font-size: 0.78rem; font-weight: 700; color: #003F76; line-height: 1.4; }
+
+    .dir-confirm {
+      padding: 13px 56px; background: #1877F2; color: white;
+      border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+      transition: background 0.18s, box-shadow 0.18s;
+      box-shadow: 0 4px 16px rgba(24,119,242,0.35);
+    }
+    .dir-confirm:hover:not(:disabled) { background: #0f60cc; box-shadow: 0 6px 22px rgba(24,119,242,0.45); }
+    .dir-confirm:disabled { background: #b0c4d8; box-shadow: none; cursor: not-allowed; }
+
+    /* ── Winners Ticker ──────────────────────────────── */
+    .ticker-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(0,40,90,0.92); color: rgba(255,255,255,0.92);
+      font-size: 0.82rem; font-weight: 500; overflow: hidden; height: 38px;
+      display: flex; align-items: center;
+    }
+    .ticker-inner { display: inline-flex; align-items: center; white-space: nowrap; }
+    .ticker-item  { display: inline-block; padding: 0 36px; }
+    .ticker-sep   { display: inline-block; color: rgba(255,255,255,0.25); }
+
+    @keyframes tickerScroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+  
+  /* ── Auth Overlay ────────────────────────────────── */
+  .auth-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: linear-gradient(180deg, #BFE0FF 0%, #B8F0C0 100%);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .auth-overlay.hidden { display: none; }
+
+  .auth-card {
+    background: white; border-radius: 20px; padding: 40px 36px 32px;
+    box-shadow: 0 24px 64px rgba(0,20,60,0.18); width: 100%; max-width: 400px;
+  }
+  .auth-logo { text-align: center; margin-bottom: 28px; }
+  .auth-logo .title { font-size: 1.6rem; font-weight: 800; color: #003F76; }
+  .auth-logo .title em { font-style: normal; color: #1877F2; }
+  .auth-logo .subtitle { font-size: 0.75rem; color: rgba(0,63,118,0.5); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+
+  .auth-tabs { display: flex; border-bottom: 2px solid #eef1f6; margin-bottom: 24px; }
+  .auth-tab {
+    flex: 1; padding: 10px; text-align: center; font-size: 0.85rem; font-weight: 700;
+    color: #aab; cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .auth-tab.active { color: #1877F2; border-bottom-color: #1877F2; }
+
+  .auth-field { margin-bottom: 14px; }
+  .auth-field label { display: block; font-size: 0.75rem; font-weight: 700; color: #445; margin-bottom: 5px; }
+  .auth-field input {
+    width: 100%; padding: 10px 13px; border: 1.5px solid #dde3ea; border-radius: 8px;
+    font-size: 0.9rem; font-family: inherit; color: #222; outline: none; transition: border-color 0.15s;
+  }
+  .auth-field input:focus { border-color: #1877F2; }
+
+  .auth-btn {
+    width: 100%; padding: 12px; background: #1877F2; color: white; border: none;
+    border-radius: 8px; font-size: 0.92rem; font-weight: 700; letter-spacing: 0.5px;
+    cursor: pointer; transition: background 0.18s; margin-top: 4px;
+  }
+  .auth-btn:hover { background: #0f60cc; }
+  .auth-btn:disabled { background: #b0c4d8; cursor: not-allowed; }
+
+  .auth-error {
+    margin-top: 10px; padding: 9px 13px; background: #fff0f0; border-radius: 7px;
+    font-size: 0.78rem; color: #e53935; display: none;
+  }
+  .auth-error.show { display: block; }
+
+  .auth-loading {
+    text-align: center; padding: 20px; font-size: 0.85rem; color: #889;
+  }
+
+  /* ── Day group header in winners table ──────────── */
+  .day-group-hd {
+    padding: 7px 6px 5px; font-size: 0.68rem; font-weight: 700;
+    color: #1877F2; letter-spacing: 0.5px; border-bottom: 1px solid #d8e8ff;
+    background: #f0f6ff; margin-top: 8px;
+  }
+  .day-group-hd:first-child { margin-top: 0; }
+</style>
+<!-- Firebase SDK (compat v9) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<header>
+  <!-- Language Switcher (left) -->
+  <div class="lang-switcher" id="langSwitcher">
+    <button class="lang-btn active" onclick="setLang('EN')">EN</button>
+    <button class="lang-btn"        onclick="setLang('DE')">DE</button>
+    <button class="lang-btn"        onclick="setLang('FR')">FR</button>
+    <button class="lang-btn"        onclick="setLang('ES')">ES</button>
+    <button class="lang-btn"        onclick="setLang('NL')">NL</button>
+  </div>
+
+  <div class="title" id="headerTitle">Novogene <em>Plasmid Lucky Wheel</em></div>
+  <div class="subtitle" id="headerSubtitle">Spin &amp; Win</div>
+
+  <button class="lock-btn" id="lockBtn" onclick="handleLockClick()" title="Admin Settings">🔒</button>
+
+  <div class="pw-prompt" id="pwPrompt">
+    <input type="password" id="pwInput" placeholder="Admin password"
+           onkeydown="if(event.key==='Enter')checkPassword()">
+    <button class="pw-ok"     onclick="checkPassword()">OK</button>
+    <button class="pw-cancel" onclick="closePwPrompt()">✕</button>
+    <span class="pw-error" id="pwError"></span>
+  </div>
+</header>
+
+<div class="page-body">
+
+<!-- LEFT: Prize Details -->
+<aside class="left-panel">
+  <div class="sidebar-prizes">
+    <div class="sidebar-prizes-hd" id="prizeDetailsHd">Prize Details</div>
+    <div class="sidebar-prizes-list" id="sidebarPrizeList"></div>
+  </div>
+  <div class="leave-details-hint">
+    <span id="leaveDetailsHint">Spin the wheel to win!</span>
+  </div>
+</aside>
+
+<main>
+  <!-- Wheel -->
+  <div class="wheel-area">
+    <div class="pointer-wrap">
+      <svg class="pointer-svg" width="30" height="38" viewBox="0 0 30 38">
+        <polygon points="15,38 0,0 30,0" fill="#003F76"/>
+        <polygon points="15,34 3,4 27,4" fill="#1877F2"/>
+      </svg>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="wheelCanvas" width="460" height="460"></canvas>
+    </div>
+  </div>
+
+  <button class="spin-btn" id="spinBtn" onclick="startSpin()">SPIN</button>
+
+  <!-- Admin Settings (hidden until authenticated) -->
+  <div class="settings-card" id="settingsCard" style="display:none">
+    <div class="settings-hd" onclick="toggleSettings()">
+      <h3 id="adminSettingsLabel">⚙ Prize Settings</h3>
+      <svg class="chevron" id="chevron" viewBox="0 0 24 24">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
+    <div class="settings-bd open" id="settingsBd">
+      <div class="settings-actions">
+        <button class="btn-add"   id="btnAdd"   onclick="addPrize()">+ Add Prize</button>
+        <button class="btn-reset" id="btnReset" onclick="resetPrizes()">Reset Default</button>
+        <button class="btn-csv"   id="btnCSV"   onclick="downloadCSV()">&#8659; Download CSV</button>
+        <button class="btn-reset" id="btnLogout" onclick="logOut()" style="color:#e53935;border-color:#e53935">退出登录</button>
+      </div>
+      <div id="syncStatus" style="display:none;margin:4px 0 10px;padding:7px 12px;background:#fff8e1;border-radius:7px;font-size:0.78rem;color:#b45309;align-items:center;gap:10px;">
+        <span id="syncStatusText"></span>
+        <button onclick="manualSync()" style="padding:4px 12px;background:#f59e0b;color:white;border:none;border-radius:5px;font-size:0.75rem;font-weight:700;cursor:pointer;">Sync Now</button>
+      </div>
+      <div class="list-header">
+        <span class="lh-num">#</span>
+        <span class="lh-name" id="colNameHd">Prize Name</span>
+        <span class="lh-desc" id="colDescHd">Description</span>
+        <span class="lh-wt"   id="colWeightHd">Weight</span>
+        <span class="lh-pct"  id="colProbHd">Prob.</span>
+        <span class="lh-del"></span>
+      </div>
+      <div class="prize-list" id="prizeList"></div>
+      <div class="prize-totals" id="prizeTotals"></div>
+      <div class="hint" id="minMaxHint">Min 2 &middot; Max 16 prizes &middot; Higher weight = larger sector &amp; higher chance</div>
+
+      <!-- Winners list -->
+      <div class="admin-winners-section">
+        <div class="admin-winners-hd">
+          <span id="adminWinnersTitle">Winners List</span>
+          <span class="admin-winners-count" id="adminWinnersCount"></span>
+        </div>
+        <div id="adminWinnersTable"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- RIGHT: Mini Poster -->
+<aside class="right-panel">
+  <div class="sidebar-poster">
+    <div class="poster-eyebrow"  id="posterEyebrow">Novogene Plasmid Service</div>
+    <div class="poster-headline" id="posterHeadline">Spin the Wheel for<br><span id="posterHeadlineSpan">Plasmid Prizes</span></div>
+    <div class="poster-divider"></div>
+    <div class="poster-body"     id="posterBody">Try your luck and win exclusive Plasmid rewards &mdash; sequencing samples, discounts &amp; surprise freebies!</div>
+    <div class="poster-badge"    id="posterBadge">🎡 Free to Play</div>
+  </div>
+</aside>
+
+</div><!-- /.page-body -->
+
+<!-- Result Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-icon">🎉</div>
+    <div class="modal-label" id="modalLabel">Congratulations! You won</div>
+    <div class="modal-prize"  id="modalPrize">—</div>
+
+    <div id="modalRecommBox" style="display:none">
+      <div class="modal-recomm-label" id="modalRecommLabel">Why Plasmid Sequencing?</div>
+      <div class="modal-recomm-box"   id="modalRecommText"></div>
+    </div>
+
+    <div class="modal-form">
+      <div class="modal-field">
+        <label for="fieldName" id="labelName">Your Name</label>
+        <input type="text"  id="fieldName"  maxlength="80">
+        <div class="modal-field-error" id="errorName"></div>
+      </div>
+      <div class="modal-field">
+        <label for="fieldEmail" id="labelEmail">Your Email</label>
+        <input type="email" id="fieldEmail" maxlength="120">
+        <div class="modal-field-error" id="errorEmail"></div>
+      </div>
+      <button class="modal-submit" id="modalSubmit" onclick="submitRegistration()">Claim Prize</button>
+      <button class="modal-skip"   id="modalSkip"   onclick="closeModal()">Skip for now</button>
+    </div>
+  </div>
+</div>
+
+<!-- Direction Selection Overlay -->
+<div class="dir-overlay" id="dirOverlay">
+  <div class="dir-overlay-title" id="dirTitle">Select Your Research Direction</div>
+  <div class="dir-overlay-sub"   id="dirSubtitle">Choose one to spin the wheel</div>
+  <div class="dir-grid" id="dirGrid"></div>
+  <button class="dir-confirm" id="dirConfirmBtn" onclick="confirmDirection()" disabled>CONFIRM</button>
+  <button class="dir-preview-btn" id="dirPreviewBtn" onclick="enterPreview()">👀 Preview Wheel</button>
+</div>
+
+<!-- Lucky Quote Overlay -->
+<div class="lucky-overlay" id="luckyOverlay">
+  <div class="lucky-modal">
+    <div class="lucky-star">✨</div>
+    <div class="lucky-tag" id="luckyTag">Your Research Fortune</div>
+    <div class="lucky-text" id="luckyText"></div>
+    <button class="lucky-back" id="luckyBackBtn" onclick="closeLuckyOverlay()">← Back to Start</button>
+  </div>
+</div>
+
+<!-- Floating preview-back button -->
+<button class="preview-back-btn" id="previewBackBtn" onclick="exitPreview()">← Back to Direction Selection</button>
+
+<!-- Auth Overlay -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="title">Novogene <em>Lucky Wheel</em></div>
+      <div class="subtitle">Booth Operator Login</div>
+    </div>
+    <div class="auth-loading" id="authLoading">Verifying login…</div>
+    <div id="authForm" style="display:none">
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Log In</div>
+        <div class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">Create Account</div>
+      </div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="authEmail" placeholder="Enter your email" onkeydown="if(event.key==='Enter')submitAuth()">
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="authPassword" placeholder="Enter password (min. 6 characters)" onkeydown="if(event.key==='Enter')submitAuth()">
+      </div>
+      <button class="auth-btn" id="authSubmitBtn" onclick="submitAuth()">Log In</button>
+      <div class="auth-error" id="authError"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Winners Ticker -->
+<div class="ticker-bar" id="tickerBar">
+  <div class="ticker-inner" id="tickerInner">
+    <span class="ticker-item">🎡 Be the first to spin and win!</span>
+  </div>
+</div>
+
+<script>
+/* ── Firebase 配置（请替换为你的项目凭据） ────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyA8hNwiK_K1d8xfL_NskVihX8E7GkgmDqE",
+  authDomain: "novogene-lucky--wheel.firebaseapp.com",
+  projectId: "novogene-lucky--wheel",
+  storageBucket: "novogene-lucky--wheel.firebasestorage.app",
+  messagingSenderId: "763463235345",
+  appId: "1:763463235345:web:94fdc6590ad14ee2b3feb0",
+  measurementId: "G-G8E3DD9PWZ"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+/* ── Config ──────────────────────────────────────────── */
+const ADMIN_PASSWORD = "admin123";
+
+/* ── Translations ────────────────────────────────────── */
+const TRANSLATIONS = {
+  EN: {
+    headerEmphasis:  'Plasmid Lucky Wheel',
+    headerSubtitle:  'Spin & Win',
+    spinBtn:         'SPIN',
+    prizeDetails:    'Prize Details',
+    leaveDetails:    'Spin the wheel to win!',
+    posterEyebrow:   'Novogene Plasmid Service',
+    posterH1:        'Spin the Wheel for',
+    posterH2:        'Plasmid Prizes',
+    posterBody:      'Try your luck and win exclusive Plasmid rewards — sequencing samples, discounts & surprise freebies!',
+    posterBadge:     '🎡 Free to Play',
+    dirTitle:        'Select Your Research Direction',
+    dirSub:          'Choose one to spin the wheel',
+    dirConfirm:      'CONFIRM',
+    directions: [
+      { short: 'Synthetic Biology',  full: 'Synthetic Biology & Genetic Circuit Engineering' },
+      { short: 'CRISPR / Breeding',  full: 'CRISPR Gene Editing & Plant Molecular Breeding' },
+      { short: 'Protein / Enzyme',   full: 'Protein Expression, Engineering & Enzyme Engineering' },
+      { short: 'Promoter Screening', full: 'Promoter Screening & Transcriptional Regulation' },
+      { short: 'Library / Barcodes', full: 'Library Construction & Barcode-Based Screening' },
+      { short: 'Others',             full: 'Others' }
+    ],
+    recommendations: [
+      'Precise plasmid sequencing helps ensure your synthetic designs are built exactly as intended.',
+      'Full-plasmid verification supports accurate CRISPR construct confirmation and reliable downstream results.',
+      'Sequence-accurate constructs are the foundation for efficient protein expression and engineering success.',
+      'Comprehensive plasmid confirmation gives confidence in every promoter and reporter construct.',
+      'High-throughput projects depend on precise library validation and barcode integrity at every step.',
+      'For projects beyond the standard categories, comprehensive plasmid sequencing provides the clarity needed to verify complex constructs with confidence.'
+    ],
+    modalCongrats:    'Congratulations! You won',
+    modalRecommLabel: 'Why Plasmid Sequencing?',
+    nameLabel:        'Your Name',
+    namePlaceholder:  'Enter your name',
+    emailLabel:       'Your Email',
+    emailPlaceholder: 'Enter your email',
+    submitBtn:        'Claim Prize',
+    skipLink:         'Skip for now',
+    adminSettings:    '⚙ Prize Settings',
+    addPrize:         '+ Add Prize',
+    resetDefault:     'Reset Default',
+    downloadCSV:      '↓ Download CSV',
+    colName:          'Prize Name',
+    colDesc:          'Description',
+    colWeight:        'Weight',
+    colProb:          'Prob.',
+    minMaxHint:       'Min 2 · Max 16 prizes · Higher weight = larger sector & higher chance',
+    totalWeight:      'Total weight:',
+    allSum:           'All prizes sum to 100%',
+    exitAdmin:        'Exit Admin',
+    adminWinnersTitle:'Winners List',
+    recordsCount:     'records',
+    noWinnersYet:     '🎡 Be the first to spin and win!',
+    tickerWon:        'won',
+    tickerAgo:        'ago',
+    tickerJust:       'just now',
+    tickerMin:        'min',
+    tickerHour:       'hr',
+    tickerDay:        'd',
+    formErrName:      'Please enter your name.',
+    formErrEmail:     'Please enter a valid email address.',
+    luckyTag:         'Your Research Fortune',
+    luckyBackBtn:     '← Back to Start',
+    previewBackBtn:   '← Back to Direction Selection',
+    dirPreviewBtn:    '👀 Preview Wheel',
+    luckyQuotes: [
+      'May your experiments yield clear bands and clean data — science favors the well-prepared! 🔬',
+      'This year\'s papers will flow like a perfectly run PCR. Keep pushing forward! 📄',
+      'Your constructs shall sequence flawlessly, and your results shall replicate beautifully. 🧬',
+      'May your p-values be small and your effect sizes large. Fortune favors bold science! 📊',
+      'Like a precisely designed plasmid, your research will be stable, accurate, and impactful. 🌟',
+      'A major breakthrough awaits you — your lab notebook shall overflow with success! ⭐',
+      'Smooth cloning, clean gels, and happy reviewers lie ahead. You\'ve got this! 💪'
+    ]
+  },
+  DE: {
+    headerEmphasis:  'Plasmid-Glücksrad',
+    headerSubtitle:  'Drehen & Gewinnen',
+    spinBtn:         'DREHEN',
+    prizeDetails:    'Preisdetails',
+    leaveDetails:    'Drehe das Rad und gewinne!',
+    posterEyebrow:   'Novogene Plasmid-Service',
+    posterH1:        'Drehe das Rad für',
+    posterH2:        'Plasmid-Preise',
+    posterBody:      'Versuche dein Glück und gewinne exklusive Plasmid-Prämien — Sequenzierungsproben, Rabatte & Überraschungen!',
+    posterBadge:     '🎡 Kostenlos spielen',
+    dirTitle:        'Wähle deine Forschungsrichtung',
+    dirSub:          'Wähle eine aus, um zu drehen',
+    dirConfirm:      'BESTÄTIGEN',
+    directions: [
+      { short: 'Synthetische Bio.',   full: 'Synthetische Biologie & Genetische Schaltkreistechnik' },
+      { short: 'CRISPR / Züchtung', full: 'CRISPR-Genbearbeitung & Pflanzenmolekularbiologie' },
+      { short: 'Protein / Enzym',     full: 'Proteinexpression, -engineering & Enzymtechnik' },
+      { short: 'Promotor-Screening',  full: 'Promotor-Screening & Transkriptionsregulation' },
+      { short: 'Bibl. / Barcodes',    full: 'Bibliothekskonstruktion & Barcode-basiertes Screening' },
+      { short: 'Sonstiges',           full: 'Sonstiges' }
+    ],
+    recommendations: [
+      'Präzise Plasmidsequenzierung stellt sicher, dass Ihre synthetischen Designs genau wie vorgesehen umgesetzt werden.',
+      'Die vollständige Plasmidverifizierung unterstützt die genaue Bestätigung von CRISPR-Konstrukten und zuverlässige Ergebnisse.',
+      'Sequenzgenaue Konstrukte sind die Grundlage für effiziente Proteinexpression und erfolgreiches Engineering.',
+      'Umfassende Plasmidvestätigung gibt Sicherheit bei jedem Promotor- und Reporterkonstrukt.',
+      'Hochdurchsatzprojekte hängen von präziser Bibliotheksvalidierung und Barcode-Integrität in jedem Schritt ab.',
+      'Für Projekte jenseits der Standardkategorien bietet umfassende Plasmidsequenzierung die Klarheit zur Verifikation komplexer Konstrukte.'
+    ],
+    modalCongrats:    'Herzlichen Glückwunsch! Du hast gewonnen',
+    modalRecommLabel: 'Warum Plasmidsequenzierung?',
+    nameLabel:        'Dein Name',
+    namePlaceholder:  'Namen eingeben',
+    emailLabel:       'Deine E-Mail',
+    emailPlaceholder: 'E-Mail eingeben',
+    submitBtn:        'Preis beanspruchen',
+    skipLink:         'Jetzt überspringen',
+    adminSettings:    '⚙ Preiseinstellungen',
+    addPrize:         '+ Preis hinzufügen',
+    resetDefault:     'Standard zurücksetzen',
+    downloadCSV:      '↓ CSV herunterladen',
+    colName:          'Preisname',
+    colDesc:          'Beschreibung',
+    colWeight:        'Gewicht',
+    colProb:          'Wahrsch.',
+    minMaxHint:       'Min 2 · Max 16 Preise · Höheres Gewicht = größerer Sektor & höhere Chance',
+    totalWeight:      'Gesamtgewicht:',
+    allSum:           'Alle Preise ergeben 100%',
+    exitAdmin:        'Admin verlassen',
+    adminWinnersTitle:'Gewinnerliste',
+    recordsCount:     'Einträge',
+    noWinnersYet:     '🎡 Sei der Erste, der dreht und gewinnt!',
+    tickerWon:        'hat gewonnen',
+    tickerAgo:        'vor',
+    tickerJust:       'gerade eben',
+    tickerMin:        'Min',
+    tickerHour:       'Std',
+    tickerDay:        'T',
+    formErrName:      'Bitte Namen eingeben.',
+    formErrEmail:     'Bitte eine gültige E-Mail-Adresse eingeben.',
+    luckyTag:         'Dein Forschungsglück',
+    luckyBackBtn:     '← Zurück zum Start',
+    previewBackBtn:   '← Zurück zur Richtungsauswahl',
+    dirPreviewBtn:    '👀 Rad vorschauen',
+    luckyQuotes: [
+      'Mögen deine Experimente klare Banden und saubere Daten liefern — die Wissenschaft belohnt Vorbereitung! 🔬',
+      'Deine Paper werden fließen wie eine perfekt durchgeführte PCR. Weiter so! 📄',
+      'Deine Konstrukte werden makellos sequenziert und deine Ergebnisse reproduzierbar sein. 🧬',
+      'Mögen deine p-Werte klein und deine Effektgrößen groß sein. Die Wissenschaft belohnt Mut! 📊',
+      'Wie ein präzise entworfenes Plasmid wird deine Forschung stabil, genau und wirkungsvoll sein. 🌟',
+      'Ein großer Durchbruch erwartet dich — dein Laborbuch wird vor Erfolgen überfließen! ⭐',
+      'Gutes Klonieren, saubere Gele und zufriedene Reviewer liegen vor dir. Du schaffst das! 💪'
+    ]
+  },
+  FR: {
+    headerEmphasis:  'Roue de la Fortune Plasmide',
+    headerSubtitle:  'Tournez & Gagnez',
+    spinBtn:         'TOURNER',
+    prizeDetails:    'Détails des prix',
+    leaveDetails:    'Tournez la roue pour gagner !',
+    posterEyebrow:   'Service Plasmide Novogene',
+    posterH1:        'Tournez la roue pour',
+    posterH2:        'Des Prix Plasmide',
+    posterBody:      'Tentez votre chance et gagnez des récompenses plasmide exclusives — échantillons, réductions & surprises !',
+    posterBadge:     '🎡 Gratuit',
+    dirTitle:        'Choisissez votre axe de recherche',
+    dirSub:          'Sélectionnez-en un pour tourner',
+    dirConfirm:      'CONFIRMER',
+    directions: [
+      { short: 'Biologie synth.',      full: 'Biologie synthétique & ingénierie des circuits génétiques' },
+      { short: 'CRISPR / Élevage', full: 'Édition CRISPR & amélioration moléculaire des plantes' },
+      { short: 'Protéine / Enzyme', full: 'Expression & ingénierie des protéines et des enzymes' },
+      { short: 'Criblage promoteurs', full: 'Criblage des promoteurs & régulation transcriptionnelle' },
+      { short: 'Banques / Barcodes',  full: 'Construction de banques & criblage par codes-barres' },
+      { short: 'Autres',              full: 'Autres' }
+    ],
+    recommendations: [
+      'Le séquençage précis de plasmides garantit que vos conceptions synthétiques sont réalisées exactement comme prévu.',
+      'La vérification complète du plasmide soutient la confirmation précise des constructions CRISPR et des résultats fiables.',
+      'Des constructions précises en séquence sont la base d\'une expression protéique efficace et d\'un engineering réussi.',
+      'La confirmation complète du plasmide donne confiance pour chaque construction promoteur et rapporteur.',
+      'Les projets à haut débit dépendent d\'une validation précise des banques et de l\'intégrité des codes-barres.',
+      'Pour les projets hors catégories standard, le séquençage complet apporte la clarté nécessaire pour vérifier des constructions complexes.'
+    ],
+    modalCongrats:    'Félicitations ! Vous avez gagné',
+    modalRecommLabel: 'Pourquoi le séquençage de plasmides ?',
+    nameLabel:        'Votre nom',
+    namePlaceholder:  'Entrez votre nom',
+    emailLabel:       'Votre e-mail',
+    emailPlaceholder: 'Entrez votre e-mail',
+    submitBtn:        'Réclamer le prix',
+    skipLink:         'Passer pour l\'instant',
+    adminSettings:    '⚙ Paramètres des prix',
+    addPrize:         '+ Ajouter un prix',
+    resetDefault:     'Réinitialiser',
+    downloadCSV:      '↓ Télécharger CSV',
+    colName:          'Nom du prix',
+    colDesc:          'Description',
+    colWeight:        'Poids',
+    colProb:          'Prob.',
+    minMaxHint:       'Min 2 · Max 16 prix · Poids plus élevé = secteur plus grand',
+    totalWeight:      'Poids total :',
+    allSum:           'Tous les prix totalisent 100%',
+    exitAdmin:        'Quitter Admin',
+    adminWinnersTitle:'Liste des gagnants',
+    recordsCount:     'enregistrements',
+    noWinnersYet:     '🎡 Soyez le premier à tourner et gagner !',
+    tickerWon:        'a gagné',
+    tickerAgo:        'il y a',
+    tickerJust:       'à l\'instant',
+    tickerMin:        'min',
+    tickerHour:       'h',
+    tickerDay:        'j',
+    formErrName:      'Veuillez entrer votre nom.',
+    formErrEmail:     'Veuillez entrer une adresse e-mail valide.',
+    luckyTag:         'Votre Fortune Scientifique',
+    luckyBackBtn:     '← Retour au début',
+    previewBackBtn:   '← Retour à la sélection',
+    dirPreviewBtn:    '👀 Aperçu de la roue',
+    luckyQuotes: [
+      'Que vos expériences donnent des bandes nettes et des données propres — la science récompense la préparation ! 🔬',
+      'Vos articles couleront comme une PCR parfaitement exécutée. Continuez ! 📄',
+      'Vos constructions seront séquencées parfaitement et vos résultats seront reproductibles. 🧬',
+      'Que vos valeurs p soient petites et vos effets grands. La science récompense les audacieux ! 📊',
+      'Comme un plasmide bien conçu, votre recherche sera stable, précise et impactante. 🌟',
+      'Une grande percée vous attend — votre cahier de labo débordера de succès ! ⭐',
+      'Un bon clonage, des gels propres et des relecteurs satisfaits vous attendent. Vous y arriverez ! 💪'
+    ]
+  },
+  ES: {
+    headerEmphasis:  'Ruleta de la Suerte de Plásmidos',
+    headerSubtitle:  'Gira y Gana',
+    spinBtn:         'GIRAR',
+    prizeDetails:    'Detalles del premio',
+    leaveDetails:    '¡Gira la rueda para ganar!',
+    posterEyebrow:   'Servicio de Plásmidos Novogene',
+    posterH1:        'Gira la Rueda por',
+    posterH2:        'Premios de Plásmidos',
+    posterBody:      '¡Prueba tu suerte y gana recompensas exclusivas de plásmidos — muestras, descuentos y sorpresas!',
+    posterBadge:     '🎡 Gratis',
+    dirTitle:        'Selecciona tu área de investigación',
+    dirSub:          'Elige una para girar la rueda',
+    dirConfirm:      'CONFIRMAR',
+    directions: [
+      { short: 'Biología sintética', full: 'Biología sintética e ingeniería de circuitos genéticos' },
+      { short: 'CRISPR / Mejora',    full: 'Edición CRISPR & mejoramiento molecular de plantas' },
+      { short: 'Proteína / Enzima', full: 'Expresión e ingeniería de proteínas y enzimas' },
+      { short: 'Promotores',         full: 'Cribado de promotores & regulación transcripcional' },
+      { short: 'Biblioteca / BC',    full: 'Construcción de bibliotecas & cribado por códigos de barras' },
+      { short: 'Otros',              full: 'Otros' }
+    ],
+    recommendations: [
+      'La secuenciación precisa de plásmidos garantiza que tus diseños sintéticos se construyan exactamente como se planeó.',
+      'La verificación completa del plásmido respalda la confirmación precisa de construcciones CRISPR y resultados fiables.',
+      'Las construcciones con secuencias precisas son la base para la expresión proteíca eficiente y el éxito en ingeniería.',
+      'La confirmación integral del plásmido da confianza en cada construcción de promotor y reportero.',
+      'Los proyectos de alto rendimiento dependen de la validación precisa de bibliotecas y la integridad de códigos de barras.',
+      'Para proyectos fuera de las categorías estándar, la secuenciación completa proporciona la claridad necesaria para verificar construcciones complejas.'
+    ],
+    modalCongrats:    '¡Felicidades! Ganaste',
+    modalRecommLabel: '¿Por qué la secuenciación de plásmidos?',
+    nameLabel:        'Tu nombre',
+    namePlaceholder:  'Ingresa tu nombre',
+    emailLabel:       'Tu correo',
+    emailPlaceholder: 'Ingresa tu correo',
+    submitBtn:        'Reclamar premio',
+    skipLink:         'Omitir por ahora',
+    adminSettings:    '⚙ Configuración de premios',
+    addPrize:         '+ Agregar premio',
+    resetDefault:     'Restablecer',
+    downloadCSV:      '↓ Descargar CSV',
+    colName:          'Nombre del premio',
+    colDesc:          'Descripción',
+    colWeight:        'Peso',
+    colProb:          'Prob.',
+    minMaxHint:       'Mín 2 · Máx 16 premios · Mayor peso = sector más grande',
+    totalWeight:      'Peso total:',
+    allSum:           'Todos los premios suman 100%',
+    exitAdmin:        'Salir de Admin',
+    adminWinnersTitle:'Lista de ganadores',
+    recordsCount:     'registros',
+    noWinnersYet:     '🎡 ¡Sé el primero en girar y ganar!',
+    tickerWon:        'ganó',
+    tickerAgo:        'hace',
+    tickerJust:       'ahora mismo',
+    tickerMin:        'min',
+    tickerHour:       'h',
+    tickerDay:        'd',
+    formErrName:      'Por favor ingresa tu nombre.',
+    formErrEmail:     'Por favor ingresa un correo válido.',
+    luckyTag:         'Tu Fortuna Científica',
+    luckyBackBtn:     '← Volver al inicio',
+    previewBackBtn:   '← Volver a la selección',
+    dirPreviewBtn:    '👀 Vista previa de la rueda',
+    luckyQuotes: [
+      '¡Que tus experimentos den bandas nítidas y datos limpios — la ciencia favorece a los preparados! 🔬',
+      'Tus artículos fluirán como una PCR perfectamente ejecutada. ¡Sigue adelante! 📄',
+      'Tus construcciones se secuenciarán perfectamente y tus resultados serán reproducibles. 🧬',
+      '¡Que tus valores p sean pequeños y tus efectos grandes. La ciencia premia a los valientes! 📊',
+      'Como un plásmido bien diseñado, tu investigación será estable, precisa e impactante. 🌟',
+      '¡Un gran descubrimiento te espera — tu cuaderno de laboratorio rebosará de éxitos! ⭐',
+      '¡Clonación perfecta, geles limpios y revisores felices te aguardan. ¡Tú puedes! 💪'
+    ]
+  },
+  NL: {
+    headerEmphasis:  'Plasmide Geluksrad',
+    headerSubtitle:  'Draai & Win',
+    spinBtn:         'DRAAIEN',
+    prizeDetails:    'Prijsdetails',
+    leaveDetails:    'Draai het wiel en win!',
+    posterEyebrow:   'Novogene Plasmide Service',
+    posterH1:        'Draai het Wiel voor',
+    posterH2:        'Plasmide Prijzen',
+    posterBody:      'Probeer je geluk en win exclusieve Plasmide-beloningen — sequenceringsmonsters, kortingen & verrassingen!',
+    posterBadge:     '🎡 Gratis te spelen',
+    dirTitle:        'Kies je onderzoeksrichting',
+    dirSub:          'Kies er een om te draaien',
+    dirConfirm:      'BEVESTIGEN',
+    directions: [
+      { short: 'Synthetische bio.',    full: 'Synthetische biologie & genetische circuitengineering' },
+      { short: 'CRISPR / Veredeling', full: 'CRISPR-genbewerking & plantenmoleculaire veredeling' },
+      { short: 'Eiwit / Enzym',       full: 'Eiwitexpressie, -engineering & enzymengineering' },
+      { short: 'Promoter-screening',  full: 'Promoter-screening & transcriptionele regulatie' },
+      { short: 'Bibl. / Barcode',     full: 'Bibliotheekconstruktie & barcode-gebaseerde screening' },
+      { short: 'Overig',              full: 'Overig' }
+    ],
+    recommendations: [
+      'Nauwkeurige plasmidesequentiëring zorgt ervoor dat uw synthetische ontwerpen exact worden gerealiseerd.',
+      'Volledige plasmideverificatie ondersteunt nauwkeurige CRISPR-constructbevestiging en betrouwbare resultaten.',
+      'Sequentie-nauwkeurige constructen vormen de basis voor efficiënte eiwitexpressie en engineering.',
+      'Uitgebreide plasmidebevestiging geeft vertrouwen in elk promoter- en rapporterconstruct.',
+      'Hoge-doorvoerprojecten zijn afhankelijk van nauwkeurige bibliotheekvalidatie en barcodeintegriëit.',
+      'Voor projecten buiten de standaardcategorieën biedt volledige plasmidesequentiëring de nodige duidelijkheid om complexe constructen te verifiëren.'
+    ],
+    modalCongrats:    'Gefeliciteerd! Je hebt gewonnen',
+    modalRecommLabel: 'Waarom plasmidesequentiëring?',
+    nameLabel:        'Uw naam',
+    namePlaceholder:  'Vul uw naam in',
+    emailLabel:       'Uw e-mail',
+    emailPlaceholder: 'Vul uw e-mail in',
+    submitBtn:        'Prijs claimen',
+    skipLink:         'Nu overslaan',
+    adminSettings:    '⚙ Prijsinstellingen',
+    addPrize:         '+ Prijs toevoegen',
+    resetDefault:     'Standaard herstellen',
+    downloadCSV:      '↓ CSV downloaden',
+    colName:          'Prijsnaam',
+    colDesc:          'Beschrijving',
+    colWeight:        'Gewicht',
+    colProb:          'Kans',
+    minMaxHint:       'Min 2 · Max 16 prijzen · Hoger gewicht = groter sector',
+    totalWeight:      'Totaal gewicht:',
+    allSum:           'Alle prijzen samen 100%',
+    exitAdmin:        'Admin verlaten',
+    adminWinnersTitle:'Winnaarslijst',
+    recordsCount:     'records',
+    noWinnersYet:     '🎡 Wees de eerste die draait en wint!',
+    tickerWon:        'won',
+    tickerAgo:        'geleden',
+    tickerJust:       'zojuist',
+    tickerMin:        'min',
+    tickerHour:       'uur',
+    tickerDay:        'd',
+    formErrName:      'Vul uw naam in.',
+    formErrEmail:     'Vul een geldig e-mailadres in.',
+    luckyTag:         'Uw Wetenschapsgeluk',
+    luckyBackBtn:     '← Terug naar begin',
+    previewBackBtn:   '← Terug naar richting',
+    dirPreviewBtn:    '👀 Wiel voorvertonen',
+    luckyQuotes: [
+      'Mogen uw experimenten heldere banden en schone data opleveren — de wetenschap beloont voorbereiding! 🔬',
+      'Uw papers zullen vloeien als een perfect uitgevoerde PCR. Ga door! 📄',
+      'Uw constructen worden perfect gesequenceerd en uw resultaten reproduceerbaar. 🧬',
+      'Mogen uw p-waarden klein zijn en uw effectgrootten groot. De wetenschap beloont de moedigen! 📊',
+      'Zoals een precies ontworpen plasmide zal uw onderzoek stabiel, nauwkeurig en impactvol zijn. 🌟',
+      'Een grote doorbraak wacht op u — uw labnotebook zal overlopen van successen! ⭐',
+      'Goed kloneren, schone gels en tevreden reviewers wachten op u. U kunt het! 💪'
+    ]
+  }
+};
+
+const COLORS = [
+  '#003F76', '#1877F2', '#43B149',
+  '#00508E', '#2E8EFF', '#35A03B',
+  '#004FA0', '#5AABFF', '#4AC050',
+  '#00407A', '#1877F2', '#3AAD42',
+];
+
+const DIR_ICONS = ['🧬', '✂️', '🔬', '📊', '📚', '🔭'];
+
+/* ── State ───────────────────────────────────────────── */
+let prizes       = ['First Prize', 'Second Prize', 'Third Prize'];
+let weights      = [15, 35, 50];
+let descriptions = [
+  '12 free Plasmid samples',
+  '12 Plasmid samples with 50% discount',
+  '12 Plasmid samples with 20% discount'
+];
+let isAdmin      = false;
+let currentAngle = 0;
+let spinning     = false;
+let currentLang  = 'EN';
+let selectedDir  = null;
+let winners      = [];
+let pendingSpinId = null;
+let pendingPrize  = null;
+let currentUser   = null;
+let authMode      = 'login'; // 'login' | 'register'
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+/* ── Offline pending queue (localStorage) ────────────── */
+function pendingKey(uid) { return 'ng_pending_' + uid; }
+
+function loadPending(uid) {
+  try { return JSON.parse(localStorage.getItem(pendingKey(uid)) || '[]'); }
+  catch(e) { return []; }
+}
+
+function savePending(uid, list) {
+  try { localStorage.setItem(pendingKey(uid), JSON.stringify(list)); } catch(e) {}
+}
+
+function addPending(uid, entry) {
+  const list = loadPending(uid);
+  list.push(entry);
+  savePending(uid, list);
+}
+
+function removePending(uid, spinId) {
+  const list = loadPending(uid).filter(e => e.spinId !== spinId);
+  savePending(uid, list);
+}
+
+async function syncPending(uid) {
+  const list = loadPending(uid);
+  if (list.length === 0) return;
+  let synced = 0;
+  for (const entry of list) {
+    try {
+      const ref = await db.collection('users').doc(uid).collection('winners').add(entry);
+      // Update firestoreId in the in-memory winners array
+      const w = winners.find(w => w.spinId === entry.spinId);
+      if (w) w.firestoreId = ref.id;
+      removePending(uid, entry.spinId);
+      synced++;
+    } catch(e) {
+      break; // Still offline, stop trying
+    }
+  }
+  if (synced > 0) renderSyncStatus();
+}
+
+function pendingCount() {
+  if (!currentUser) return 0;
+  return loadPending(currentUser.uid).length;
+}
+
+function renderSyncStatus() {
+  const el   = document.getElementById('syncStatus');
+  const text = document.getElementById('syncStatusText');
+  if (!el || !text) return;
+  const n = pendingCount();
+  if (n === 0) {
+    el.style.display = 'none';
+  } else {
+    el.style.display = 'flex';
+    text.textContent = '⚠ ' + n + ' record' + (n > 1 ? 's' : '') + ' not yet synced (offline)';
+  }
+}
+
+async function manualSync() {
+  if (!currentUser) return;
+  const btn = document.querySelector('#syncStatus button');
+  if (btn) { btn.textContent = 'Syncing…'; btn.disabled = true; }
+  await syncPending(currentUser.uid);
+  if (isAdmin) renderAdminWinnersTable();
+  updateTicker();
+  if (btn) { btn.textContent = 'Sync Now'; btn.disabled = false; }
+}
+
+/* ── Firestore helpers ───────────────────────────────── */
+async function loadWinnersFromFirestore(uid) {
+  try {
+    const snap = await db.collection('users').doc(uid).collection('winners')
+      .orderBy('timestamp', 'desc').get();
+    winners = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
+    // Merge any locally pending entries not yet in Firestore
+    const pending = loadPending(uid);
+    pending.forEach(e => {
+      if (!winners.find(w => w.spinId === e.spinId)) winners.unshift(e);
+    });
+    winners.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  } catch(e) {
+    console.error('加载数据失败:', e);
+    // Offline at login — load from pending queue so data is visible
+    winners = loadPending(uid).slice().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  }
+}
+
+async function addWinner(name, email) {
+  const t = TRANSLATIONS[currentLang];
+  const entry = {
+    spinId: pendingSpinId,
+    timestamp: new Date().toISOString(),
+    name: name.trim(),
+    email: email.trim(),
+    prize: pendingPrize,
+    researchDirection: t.directions[selectedDir].full,
+    directionIndex: selectedDir
+  };
+  // Always save locally first as backup
+  if (currentUser) addPending(currentUser.uid, entry);
+  winners.unshift(entry);
+  updateTicker();
+  renderSyncStatus();
+  if (currentUser) {
+    try {
+      const ref = await db.collection('users').doc(currentUser.uid)
+        .collection('winners').add(entry);
+      winners[0].firestoreId = ref.id;
+      removePending(currentUser.uid, entry.spinId);
+      renderSyncStatus();
+    } catch(e) {
+      // Saved locally, will sync when network recovers
+      console.warn('离线，已暂存本地:', e.message);
+    }
+  }
+}
+
+/* ── Canvas setup ────────────────────────────────────── */
+const canvas = document.getElementById('wheelCanvas');
+const ctx    = canvas.getContext('2d');
+const CX = canvas.width  / 2;
+const CY = canvas.height / 2;
+const R  = CX - 3;
+
+/* ── Geometry helpers ────────────────────────────────── */
+function computeArcs() {
+  const total = weights.reduce((a, b) => a + b, 0);
+  return weights.map(w => (w / total) * 2 * Math.PI);
+}
+
+function computeStartAngles(arcs) {
+  const starts = [];
+  let acc = currentAngle;
+  for (const a of arcs) { starts.push(acc); acc += a; }
+  return starts;
+}
+
+/* ── Draw wheel ──────────────────────────────────────── */
+function drawWheel(highlightIdx = -1) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const n      = prizes.length;
+  const arcs   = computeArcs();
+  const starts = computeStartAngles(arcs);
+
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.arc(CX, CY, R, starts[i], starts[i] + arcs[i]);
+    ctx.closePath();
+    ctx.fillStyle = (i === highlightIdx) ? '#FFD700' : COLORS[i % COLORS.length];
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth   = 2.5;
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, 2 * Math.PI);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth   = 4;
+  ctx.stroke();
+
+  for (let i = 0; i < n; i++) {
+    drawLabel(prizes[i], starts[i] + arcs[i] / 2, i === highlightIdx, arcs[i]);
+  }
+
+  ctx.beginPath();
+  ctx.arc(CX, CY, 22, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,63,118,0.18)';
+  ctx.lineWidth   = 2.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(CX, CY, 8, 0, 2 * Math.PI);
+  ctx.fillStyle = '#003F76';
+  ctx.fill();
+}
+
+function drawLabel(text, midAngle, isHighlight, arcSize) {
+  if (arcSize < 0.18) return;
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.rotate(midAngle);
+  const fs = arcSize > 1.2 ? 17 : arcSize > 0.8 ? 15 : arcSize > 0.5 ? 13 : 11;
+  ctx.font         = `700 ${fs}px 'Segoe UI', Arial, sans-serif`;
+  ctx.fillStyle    = isHighlight ? '#003F76' : '#ffffff';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign    = 'center';
+  const textR  = R * 0.60;
+  const maxW   = R * 0.55;
+  const lines  = splitLines(ctx, text, maxW);
+  const lineH  = fs + 4;
+  const totalH = lines.length * lineH;
+  lines.forEach((ln, li) => {
+    ctx.fillText(ln, textR, -totalH / 2 + li * lineH + lineH / 2);
+  });
+  ctx.restore();
+}
+
+function splitLines(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return [text];
+  const words = text.split(' ');
+  if (words.length >= 2) {
+    const mid = Math.ceil(words.length / 2);
+    const l1 = words.slice(0, mid).join(' ');
+    const l2 = words.slice(mid).join(' ');
+    if (ctx.measureText(l1).width <= maxW && ctx.measureText(l2).width <= maxW) return [l1, l2];
+  }
+  const mid = Math.ceil(text.length / 2);
+  return [text.slice(0, mid), text.slice(mid)];
+}
+
+/* ── Weighted random ─────────────────────────────────── */
+function weightedRandom() {
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r <= 0) return i; }
+  return weights.length - 1;
+}
+
+function getWinnerFromAngle() {
+  const arcs   = computeArcs();
+  const offset = ((-Math.PI / 2 - currentAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  let acc = 0;
+  for (let i = 0; i < arcs.length; i++) { acc += arcs[i]; if (offset < acc) return i; }
+  return arcs.length - 1;
+}
+
+/* ── Spin logic ──────────────────────────────────────── */
+function startSpin() {
+  if (spinning) return;
+  spinning = true;
+  pendingSpinId = genId();
+  document.getElementById('spinBtn').disabled = true;
+
+  const winnerIdx = weightedRandom();
+  const arcs = computeArcs();
+  let sectorStart = 0;
+  for (let i = 0; i < winnerIdx; i++) sectorStart += arcs[i];
+  const PAD         = arcs[winnerIdx] * 0.05;
+  const localTarget = sectorStart + PAD + Math.random() * (arcs[winnerIdx] - 2 * PAD);
+  const baseEnd = -Math.PI / 2 - localTarget;
+  const delta   = ((baseEnd - currentAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  const endA    = currentAngle + (3 + Math.floor(Math.random() * 3)) * 2 * Math.PI + delta;
+
+  const startA   = currentAngle;
+  const duration = 4200 + Math.random() * 1400;
+  const t0       = performance.now();
+
+  function animate(now) {
+    const t      = Math.min((now - t0) / duration, 1);
+    const eased  = 1 - Math.pow(1 - t, 3);
+    currentAngle = startA + (endA - startA) * eased;
+    drawWheel();
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      currentAngle = endA;
+      spinning     = false;
+      const verified = getWinnerFromAngle();
+      pendingPrize   = prizes[verified];
+      drawWheel(verified);
+      setTimeout(() => showResult(prizes[verified]), 320);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+/* ── Modal ───────────────────────────────────────────── */
+function showResult(name) {
+  const t = TRANSLATIONS[currentLang];
+  document.getElementById('modalPrize').textContent = name;
+
+  if (selectedDir !== null) {
+    document.getElementById('modalRecommText').textContent = t.recommendations[selectedDir];
+    document.getElementById('modalRecommBox').style.display = '';
+  } else {
+    document.getElementById('modalRecommBox').style.display = 'none';
+  }
+
+  document.getElementById('fieldName').value  = '';
+  document.getElementById('fieldEmail').value = '';
+  ['fieldName','fieldEmail'].forEach(id => document.getElementById(id).classList.remove('error'));
+  ['errorName','errorEmail'].forEach(id => document.getElementById(id).classList.remove('show'));
+
+  document.getElementById('overlay').classList.add('show');
+  setTimeout(() => document.getElementById('fieldName').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('show');
+  currentAngle = 0;
+  drawWheel();
+  if (!isAdmin) showDirOverlay();
+}
+
+async function submitRegistration() {
+  const t     = TRANSLATIONS[currentLang];
+  const name  = document.getElementById('fieldName').value.trim();
+  const email = document.getElementById('fieldEmail').value.trim();
+  let ok = true;
+
+  if (!name) {
+    document.getElementById('fieldName').classList.add('error');
+    document.getElementById('errorName').textContent = t.formErrName;
+    document.getElementById('errorName').classList.add('show');
+    ok = false;
+  } else {
+    document.getElementById('fieldName').classList.remove('error');
+    document.getElementById('errorName').classList.remove('show');
+  }
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    document.getElementById('fieldEmail').classList.add('error');
+    document.getElementById('errorEmail').textContent = t.formErrEmail;
+    document.getElementById('errorEmail').classList.add('show');
+    ok = false;
+  } else {
+    document.getElementById('fieldEmail').classList.remove('error');
+    document.getElementById('errorEmail').classList.remove('show');
+  }
+
+  if (!ok) return;
+  await addWinner(name, email);
+  if (isAdmin) renderAdminWinnersTable();
+  document.getElementById('overlay').classList.remove('show');
+  showLuckyOverlay();
+}
+
+/* ── Lucky Quote Overlay ─────────────────────────────── */
+function showLuckyOverlay() {
+  const t = TRANSLATIONS[currentLang];
+  const quotes = t.luckyQuotes;
+  const pick = quotes[Math.floor(Math.random() * quotes.length)];
+  document.getElementById('luckyTag').textContent    = t.luckyTag;
+  document.getElementById('luckyText').textContent   = pick;
+  document.getElementById('luckyBackBtn').textContent= t.luckyBackBtn;
+  document.getElementById('luckyOverlay').classList.add('show');
+}
+
+function closeLuckyOverlay() {
+  document.getElementById('luckyOverlay').classList.remove('show');
+  currentAngle = 0;
+  drawWheel();
+  if (!isAdmin) showDirOverlay();
+}
+
+/* ── Preview Mode ────────────────────────────────────── */
+let idleAnimFrame = null;
+let idleAngle = 0;
+
+function enterPreview() {
+  document.getElementById('dirOverlay').classList.add('hidden');
+  document.getElementById('previewBackBtn').style.display = 'block';
+  document.getElementById('spinBtn').disabled = true;
+  idleAngle = currentAngle;
+  function idleStep() {
+    idleAngle += 0.004;
+    currentAngle = idleAngle;
+    drawWheel();
+    idleAnimFrame = requestAnimationFrame(idleStep);
+  }
+  idleAnimFrame = requestAnimationFrame(idleStep);
+}
+
+function exitPreview() {
+  if (idleAnimFrame) { cancelAnimationFrame(idleAnimFrame); idleAnimFrame = null; }
+  document.getElementById('previewBackBtn').style.display = 'none';
+  currentAngle = 0;
+  drawWheel();
+  showDirOverlay();
+}
+
+/* ── Direction overlay ───────────────────────────────── */
+function renderDirCards() {
+  const t    = TRANSLATIONS[currentLang];
+  const grid = document.getElementById('dirGrid');
+  grid.innerHTML = '';
+  t.directions.forEach((dir, i) => {
+    const card = document.createElement('div');
+    card.className = 'dir-card' + (i === selectedDir ? ' selected' : '');
+    card.onclick   = () => selectDir(i);
+    card.innerHTML = `<div class="dir-icon">${DIR_ICONS[i]}</div><div class="dir-label">${esc(dir.short)}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+function selectDir(i) {
+  selectedDir = i;
+  document.querySelectorAll('.dir-card').forEach((c, idx) => c.classList.toggle('selected', idx === i));
+  document.getElementById('dirConfirmBtn').disabled = false;
+}
+
+function showDirOverlay() {
+  selectedDir = null;
+  renderDirCards();
+  document.getElementById('dirConfirmBtn').disabled = true;
+  const ov = document.getElementById('dirOverlay');
+  ov.classList.remove('hidden', 'hiding');
+}
+
+function confirmDirection() {
+  if (selectedDir === null) return;
+  const ov = document.getElementById('dirOverlay');
+  ov.classList.add('hiding');
+  setTimeout(() => ov.classList.add('hidden'), 310);
+  document.getElementById('spinBtn').disabled = false;
+}
+
+/* ── Language ────────────────────────────────────────── */
+function setLang(code) {
+  currentLang = code;
+  try { localStorage.setItem('ng_lang', code); } catch(e) {}
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.trim() === code);
+  });
+  applyTranslations();
+}
+
+function applyTranslations() {
+  const t = TRANSLATIONS[currentLang];
+
+  document.getElementById('headerTitle').innerHTML = `Novogene <em>${t.headerEmphasis}</em>`;
+  document.getElementById('headerSubtitle').textContent   = t.headerSubtitle;
+  document.getElementById('prizeDetailsHd').textContent   = t.prizeDetails;
+  document.getElementById('leaveDetailsHint').textContent = t.leaveDetails;
+  document.getElementById('posterEyebrow').textContent    = t.posterEyebrow;
+  const ph = document.getElementById('posterHeadline');
+  ph.childNodes[0].nodeValue = t.posterH1;
+  document.getElementById('posterHeadlineSpan').textContent = t.posterH2;
+  document.getElementById('posterBody').textContent   = t.posterBody;
+  document.getElementById('posterBadge').textContent  = t.posterBadge;
+
+  document.getElementById('dirTitle').textContent      = t.dirTitle;
+  document.getElementById('dirSubtitle').textContent   = t.dirSub;
+  document.getElementById('dirConfirmBtn').textContent = t.dirConfirm;
+
+  document.getElementById('spinBtn').textContent           = t.spinBtn;
+  document.getElementById('adminSettingsLabel').textContent= t.adminSettings;
+  document.getElementById('btnAdd').textContent            = t.addPrize;
+  document.getElementById('btnReset').textContent          = t.resetDefault;
+  document.getElementById('btnCSV').textContent            = t.downloadCSV;
+  document.getElementById('colNameHd').textContent         = t.colName;
+  document.getElementById('colDescHd').textContent         = t.colDesc;
+  document.getElementById('colWeightHd').textContent       = t.colWeight;
+  document.getElementById('colProbHd').textContent         = t.colProb;
+  document.getElementById('minMaxHint').textContent        = t.minMaxHint;
+  document.getElementById('adminWinnersTitle').textContent = t.adminWinnersTitle;
+
+  document.getElementById('modalLabel').textContent      = t.modalCongrats;
+  document.getElementById('modalRecommLabel').textContent= t.modalRecommLabel;
+  document.getElementById('labelName').textContent       = t.nameLabel;
+  document.getElementById('labelEmail').textContent      = t.emailLabel;
+  document.getElementById('fieldName').placeholder       = t.namePlaceholder;
+  document.getElementById('fieldEmail').placeholder      = t.emailPlaceholder;
+  document.getElementById('modalSubmit').textContent     = t.submitBtn;
+  document.getElementById('modalSkip').textContent       = t.skipLink;
+  document.getElementById('dirPreviewBtn').textContent   = t.dirPreviewBtn;
+  document.getElementById('previewBackBtn').textContent  = t.previewBackBtn;
+  document.getElementById('luckyBackBtn').textContent    = t.luckyBackBtn;
+
+  renderDirCards();
+  renderPrizeTotals();
+  updateTicker();
+  if (isAdmin) renderAdminWinnersTable();
+}
+
+/* ── Admin authentication ────────────────────────────── */
+function handleLockClick() {
+  if (isAdmin) {
+    exitAdmin();
+  } else {
+    const prompt = document.getElementById('pwPrompt');
+    if (prompt.classList.contains('show')) { closePwPrompt(); }
+    else {
+      prompt.classList.add('show');
+      document.getElementById('pwInput').value = '';
+      document.getElementById('pwError').textContent = '';
+      document.getElementById('pwInput').focus();
+    }
+  }
+}
+
+function checkPassword() {
+  const val    = document.getElementById('pwInput').value;
+  const prompt = document.getElementById('pwPrompt');
+  if (val === ADMIN_PASSWORD) {
+    closePwPrompt();
+    enterAdmin();
+  } else {
+    document.getElementById('pwError').textContent = 'Wrong password';
+    prompt.classList.remove('shake');
+    void prompt.offsetWidth;
+    prompt.classList.add('shake');
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+    setTimeout(() => { document.getElementById('pwError').textContent = ''; }, 1800);
+  }
+}
+
+function closePwPrompt() {
+  document.getElementById('pwPrompt').classList.remove('show', 'shake');
+}
+
+function enterAdmin() {
+  isAdmin = true;
+  if (idleAnimFrame) { cancelAnimationFrame(idleAnimFrame); idleAnimFrame = null; }
+  document.getElementById('previewBackBtn').style.display = 'none';
+  const t = TRANSLATIONS[currentLang];
+  document.getElementById('spinBtn').classList.add('hidden');
+  document.getElementById('dirOverlay').classList.add('hidden');
+  document.getElementById('settingsCard').style.display = '';
+  document.getElementById('settingsBd').classList.add('open');
+  document.getElementById('chevron').classList.add('open');
+  const lb = document.getElementById('lockBtn');
+  lb.textContent = t.exitAdmin;
+  lb.classList.add('admin-mode');
+  renderPrizeList();
+  renderAdminWinnersTable();
+}
+
+function exitAdmin() {
+  isAdmin = false;
+  document.getElementById('spinBtn').classList.remove('hidden');
+  document.getElementById('settingsCard').style.display = 'none';
+  const lb = document.getElementById('lockBtn');
+  lb.textContent = '🔒';
+  lb.classList.remove('admin-mode');
+  showDirOverlay();
+}
+
+/* ── Settings panel ──────────────────────────────────── */
+function toggleSettings() {
+  const bd      = document.getElementById('settingsBd');
+  const chevron = document.getElementById('chevron');
+  chevron.classList.toggle('open', bd.classList.toggle('open'));
+}
+
+function renderPrizeList() {
+  const list  = document.getElementById('prizeList');
+  list.innerHTML = '';
+  const total = weights.reduce((a, b) => a + b, 0);
+
+  prizes.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'prize-item';
+
+    const dot = document.createElement('div');
+    dot.className = 'color-dot';
+    dot.style.background = COLORS[i % COLORS.length];
+
+    const num = document.createElement('span');
+    num.className   = 'prize-num';
+    num.textContent = i + 1;
+
+    const inp = document.createElement('input');
+    inp.type        = 'text';
+    inp.className   = 'name-inp';
+    inp.value       = p;
+    inp.placeholder = 'Prize name…';
+    inp.maxLength   = 28;
+    inp.addEventListener('input', () => { prizes[i] = inp.value || '(empty)'; drawWheel(); renderSidebar(); });
+
+    const descInp = document.createElement('input');
+    descInp.type        = 'text';
+    descInp.className   = 'desc-inp';
+    descInp.value       = descriptions[i] || '';
+    descInp.placeholder = 'Prize description…';
+    descInp.maxLength   = 80;
+    descInp.addEventListener('input', () => { descriptions[i] = descInp.value; renderSidebar(); });
+
+    const wWrap = document.createElement('div');
+    wWrap.className = 'weight-wrap';
+    const wLabel = document.createElement('span');
+    wLabel.className   = 'wt-label';
+    wLabel.textContent = 'Wt';
+    const wInp = document.createElement('input');
+    wInp.type      = 'number';
+    wInp.className = 'weight-inp';
+    wInp.min       = '1';
+    wInp.max       = '999';
+    wInp.value     = weights[i];
+    wInp.addEventListener('change', () => {
+      let v = parseInt(wInp.value, 10);
+      if (isNaN(v) || v < 1) v = 1;
+      if (v > 999) v = 999;
+      wInp.value = v; weights[i] = v;
+      renderPrizeList(); drawWheel();
+    });
+    wWrap.append(wLabel, wInp);
+
+    const pct = document.createElement('span');
+    pct.className   = 'prob-pct';
+    pct.textContent = ((weights[i] / total) * 100).toFixed(1) + '%';
+
+    const del = document.createElement('button');
+    del.className   = 'del-btn';
+    del.textContent = '×';
+    del.title       = 'Remove';
+    del.onclick = () => {
+      if (prizes.length <= 2) { alert('At least 2 prizes required.'); return; }
+      prizes.splice(i, 1); weights.splice(i, 1); descriptions.splice(i, 1);
+      renderPrizeList(); drawWheel(); renderSidebar();
+    };
+
+    item.append(dot, num, inp, descInp, wWrap, pct, del);
+    list.appendChild(item);
+  });
+
+  renderPrizeTotals();
+}
+
+function renderPrizeTotals() {
+  const t     = TRANSLATIONS[currentLang];
+  const total = weights.reduce((a, b) => a + b, 0);
+  document.getElementById('prizeTotals').innerHTML =
+    `<span>${t.totalWeight} <strong>${total}</strong></span><span>${t.allSum}</span>`;
+}
+
+function addPrize() {
+  if (prizes.length >= 16) { alert('Maximum 16 prizes allowed.'); return; }
+  prizes.push('New Prize'); weights.push(1); descriptions.push('');
+  renderPrizeList(); drawWheel(); renderSidebar();
+  document.getElementById('prizeList').scrollTop = 99999;
+}
+
+function resetPrizes() {
+  prizes       = ['First Prize', 'Second Prize', 'Third Prize'];
+  weights      = [15, 35, 50];
+  descriptions = ['12 free Plasmid samples', '12 Plasmid samples with 50% discount', '12 Plasmid samples with 20% discount'];
+  currentAngle = 0;
+  renderPrizeList(); drawWheel(); renderSidebar();
+}
+
+/* ── Sidebar ─────────────────────────────────────────── */
+function renderSidebar() {
+  const container = document.getElementById('sidebarPrizeList');
+  if (!container) return;
+  container.innerHTML = '';
+  prizes.forEach((name, i) => {
+    const row = document.createElement('div');
+    row.className = 'sidebar-prize-row';
+    const dot = document.createElement('div');
+    dot.className = 'sidebar-dot';
+    dot.style.background = COLORS[i % COLORS.length];
+    const info = document.createElement('div');
+    info.className = 'sidebar-prize-info';
+    const nameEl = document.createElement('div');
+    nameEl.className   = 'sidebar-prize-name';
+    nameEl.textContent = name;
+    const descEl = document.createElement('div');
+    descEl.className   = 'sidebar-prize-desc';
+    descEl.textContent = descriptions[i] || '';
+    info.append(nameEl, descEl);
+    row.append(dot, info);
+    container.appendChild(row);
+  });
+}
+
+/* ── CSV Export ──────────────────────────────────────── */
+function downloadCSV() {
+  if (winners.length === 0) { alert('No winners recorded yet.'); return; }
+  const headers = ['Timestamp','SpinID','Name','Email','Prize','ResearchDirection','DirectionIndex'];
+  const rows    = winners.map(w => [
+    w.timestamp, w.spinId, csvEsc(w.name), csvEsc(w.email),
+    csvEsc(w.prize), csvEsc(w.researchDirection), w.directionIndex
+  ]);
+  const csv  = [headers, ...rows].map(r => r.join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `novogene-winners-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function csvEsc(v) {
+  const s = String(v == null ? '' : v);
+  return (s.includes(',') || s.includes('"') || s.includes('\n'))
+    ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+/* ── Admin winners table（按天分组） ─────────────────── */
+function groupByDay(list) {
+  const map = new Map();
+  list.forEach(w => {
+    const day = w.timestamp ? w.timestamp.slice(0, 10) : 'unknown';
+    if (!map.has(day)) map.set(day, []);
+    map.get(day).push(w);
+  });
+  // 按天降序
+  return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function formatDayHeader(dateStr) {
+  if (dateStr === 'unknown') return '未知日期';
+  const d = new Date(dateStr + 'T00:00:00');
+  const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+  return `${d.getFullYear()}年${String(d.getMonth()+1).padStart(2,'0')}月${String(d.getDate()).padStart(2,'0')}日 ${weekdays[d.getDay()]}`;
+}
+
+function renderAdminWinnersTable() {
+  const t   = TRANSLATIONS[currentLang];
+  document.getElementById('adminWinnersCount').textContent = `${winners.length} ${t.recordsCount}`;
+  const box = document.getElementById('adminWinnersTable');
+  if (winners.length === 0) {
+    box.innerHTML = `<div class="admin-no-winners">${t.noWinnersYet}</div>`;
+    return;
+  }
+
+  const groups = groupByDay(winners);
+  box.innerHTML = '';
+
+  const tbl = document.createElement('table');
+  tbl.className = 'admin-winners-table';
+  tbl.innerHTML = '<thead><tr><th>时间</th><th>姓名</th><th>邮箱</th><th>奖品</th><th>方向</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+
+  groups.forEach(([day, entries]) => {
+    const dayTr = document.createElement('tr');
+    dayTr.innerHTML = `<td colspan="5" class="day-group-hd">${formatDayHeader(day)} — ${entries.length} 条记录</td>`;
+    tbody.appendChild(dayTr);
+
+    entries.forEach(w => {
+      const dt  = new Date(w.timestamp);
+      const ts  = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dir = (t.directions[w.directionIndex] || {}).short || String(w.directionIndex);
+      const tr  = document.createElement('tr');
+      tr.innerHTML = `<td>${ts}</td><td title="${esc(w.name)}">${esc(w.name)}</td><td title="${esc(w.email)}">${esc(w.email)}</td><td title="${esc(w.prize)}">${esc(w.prize)}</td><td title="${esc(dir)}">${esc(dir)}</td>`;
+      tbody.appendChild(tr);
+    });
+  });
+
+  tbl.appendChild(tbody);
+  box.appendChild(tbl);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ── Winners Ticker ──────────────────────────────────── */
+function updateTicker() {
+  const t      = TRANSLATIONS[currentLang];
+  const inner  = document.getElementById('tickerInner');
+  const recent = winners.slice(0, 10);
+
+  if (recent.length === 0) {
+    inner.style.animation = 'none';
+    inner.innerHTML = `<span class="ticker-item">${t.noWinnersYet}</span>`;
+    return;
+  }
+
+  const items = recent.map(w => {
+    const ago = timeAgo(w.timestamp, t);
+    return `<span class="ticker-item">🎉 <strong>${esc(w.name)}</strong> ${t.tickerWon} <em>${esc(w.prize)}</em> &middot; ${ago}</span><span class="ticker-sep"> &middot; </span>`;
+  }).join('');
+
+  inner.style.animation = 'none';
+  inner.innerHTML = items + items;
+  void inner.offsetWidth;
+  const dur = Math.max(recent.length * 5, 12);
+  inner.style.animation = `tickerScroll ${dur}s linear infinite`;
+}
+
+function timeAgo(iso, t) {
+  const ms  = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1)  return t.tickerJust;
+  if (min < 60) return `${min}${t.tickerMin} ${t.tickerAgo}`;
+  const hr = Math.floor(min / 60);
+  if (hr  < 24) return `${hr}${t.tickerHour} ${t.tickerAgo}`;
+  return `${Math.floor(hr / 24)}${t.tickerDay} ${t.tickerAgo}`;
+}
+
+/* ── Auth functions ──────────────────────────────────── */
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? 'Log In' : 'Create Account';
+  document.getElementById('authError').classList.remove('show');
+}
+
+async function submitAuth() {
+  const email    = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl    = document.getElementById('authError');
+  const btn      = document.getElementById('authSubmitBtn');
+  errEl.classList.remove('show');
+
+  if (!email || !password) {
+    errEl.textContent = 'Please enter your email and password.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  try {
+    if (authMode === 'login') {
+      await auth.signInWithEmailAndPassword(email, password);
+    } else {
+      await auth.createUserWithEmailAndPassword(email, password);
+    }
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':       'No account found. Please create one first.',
+      'auth/wrong-password':       'Incorrect password. Please try again.',
+      'auth/email-already-in-use': 'Email already registered. Please log in.',
+      'auth/weak-password':        'Password must be at least 6 characters.',
+      'auth/invalid-email':        'Please enter a valid email address.',
+      'auth/invalid-credential':   'Incorrect email or password. Please try again.',
+    };
+    errEl.textContent = msgs[e.code] || ('Error: ' + e.message);
+    errEl.classList.add('show');
+    btn.disabled = false;
+  }
+}
+
+async function logOut() {
+  await auth.signOut();
+  winners = [];
+  currentUser = null;
+}
+
+/* ── Keyboard shortcuts ──────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closePwPrompt(); }
+});
+
+/* ── Responsive canvas ───────────────────────────────── */
+function resizeCanvas() {
+  const w = Math.min(window.innerWidth - 56, 460);
+  canvas.style.width  = w + 'px';
+  canvas.style.height = w + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+/* ── Init ────────────────────────────────────────────── */
+try { const sl = localStorage.getItem('ng_lang'); if (sl && TRANSLATIONS[sl]) currentLang = sl; } catch(e) {}
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.classList.toggle('active', btn.textContent.trim() === currentLang);
+});
+applyTranslations();
+drawWheel();
+renderSidebar();
+
+// Auth 状态监听：未登录显示登录界面，已登录加载数据进入转盘
+auth.onAuthStateChanged(async user => {
+  const overlay   = document.getElementById('authOverlay');
+  const loading   = document.getElementById('authLoading');
+  const form      = document.getElementById('authForm');
+
+  if (user) {
+    currentUser = user;
+    overlay.classList.add('hidden');
+    winners = [];
+    await loadWinnersFromFirestore(user.uid);
+    await syncPending(user.uid);   // flush any offline-saved records
+    updateTicker();
+    renderSyncStatus();
+    if (isAdmin) renderAdminWinnersTable();
+    showDirOverlay();
+    // Retry sync every 30s in case network recovers mid-session
+    clearInterval(window._syncTimer);
+    window._syncTimer = setInterval(async () => {
+      if (pendingCount() > 0) {
+        await syncPending(user.uid);
+        if (isAdmin) renderAdminWinnersTable();
+        updateTicker();
+      }
+    }, 30000);
+  } else {
+    currentUser = null;
+    overlay.classList.remove('hidden');
+    loading.style.display = 'none';
+    form.style.display    = '';
+    // 隐藏转盘主界面
+    document.getElementById('dirOverlay').classList.add('hidden');
+  }
+});
+</script>
+</body>
+</html>
